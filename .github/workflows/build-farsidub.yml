@@ -38,7 +38,7 @@ jobs:
         run: |
           mkdir -p FarsiDub
           base64 -d farsidub/source.tar.xz.b64 > /tmp/farsidub-source.tar.xz
-          echo "5eb3bf8ae4fffa147f956045232f10408b0e2779df094e0693a7eff2d7d3dca0  /tmp/farsidub-source.tar.xz" | sha256sum -c -
+          echo "8404572531e49fd48aff5f3ae94bd6c224a3bd7b3a248c3ab04536e6999bcd56  /tmp/farsidub-source.tar.xz" | sha256sum -c -
           tar -xJf /tmp/farsidub-source.tar.xz -C FarsiDub
           test -f FarsiDub/app/src/main/java/app/farsidub/mobile/MainActivity.java
           test ! -e FarsiDub/app/src/main/assets/demo.mp4
