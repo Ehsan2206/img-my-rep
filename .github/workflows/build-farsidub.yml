@@ -21,9 +21,18 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: gradle/actions/setup-gradle@v4
-      - uses: android-actions/setup-android@v3
-      - name: Install SDK 35
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - name: Use preinstalled Android SDK and install SDK 35
+        shell: bash
+        run: |
+          export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          export ANDROID_SDK_ROOT="$ANDROID_HOME"
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/16.0/bin/sdkmanager"
+          if [[ ! -x "$SDKMANAGER" ]]; then
+            SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          fi
+          echo "Using Android SDK at $ANDROID_HOME"
+          "$SDKMANAGER" --version
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0"
       - name: Restore FarsiDub source
         shell: bash
         run: |
