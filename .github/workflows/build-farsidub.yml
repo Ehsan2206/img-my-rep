@@ -1,0 +1,77 @@
+name: Build FarsiDub 0.2.1 APK
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'farsidub/**'
+      - '.github/workflows/build-farsidub.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+      - uses: android-actions/setup-android@v3
+      - name: Install SDK 35
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - name: Restore FarsiDub source
+        shell: bash
+        run: |
+          mkdir -p FarsiDub
+          base64 -d farsidub/source.tar.xz.b64 > /tmp/farsidub-source.tar.xz
+          echo "5eb3bf8ae4fffa147f956045232f10408b0e2779df094e0693a7eff2d7d3dca0  /tmp/farsidub-source.tar.xz" | sha256sum -c -
+          tar -xJf /tmp/farsidub-source.tar.xz -C FarsiDub
+          test -f FarsiDub/app/src/main/java/app/farsidub/mobile/MainActivity.java
+          test ! -e FarsiDub/app/src/main/assets/demo.mp4
+      - name: Cache native runtime and models
+        uses: actions/cache@v4
+        with:
+          path: |
+            FarsiDub/app/libs
+            FarsiDub/app/src/main/assets/speech
+            FarsiDub/app/src/main/assets/voice
+          key: farsidub-0.2.1-native-models
+      - name: Download checked native model assets
+        shell: bash
+        working-directory: FarsiDub
+        run: |
+          if [[ ! -s app/libs/sherpa.aar || ! -s app/src/main/assets/voice/fa_IR-amir-medium.onnx || ! -s app/src/main/assets/speech/tiny.en-encoder.int8.onnx ]]; then
+            bash prepare-assets.sh
+          fi
+      - name: Test independent subtitle and audio logic
+        working-directory: FarsiDub
+        run: |
+          mkdir -p build/core-tests
+          javac -encoding UTF-8 -d build/core-tests             app/src/main/java/app/farsidub/mobile/Subtitles.java             app/src/main/java/app/farsidub/mobile/Pcm.java             tests/app/farsidub/mobile/CoreTests.java
+          java -ea -cp build/core-tests app.farsidub.mobile.CoreTests
+      - name: Compile installable Android package
+        working-directory: FarsiDub
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:assembleDebug --no-daemon --stacktrace
+      - name: Validate produced APK
+        working-directory: FarsiDub
+        run: |
+          apk=app/build/outputs/apk/debug/app-debug.apk
+          test -s "$apk"
+          unzip -t "$apk" | tail -1
+          sha256sum "$apk" | tee app/build/outputs/apk/debug/app-debug.sha256
+      - name: Upload APK and SHA-256
+        uses: actions/upload-artifact@v4
+        with:
+          name: FarsiDub-0.2.1-arm64-debug-apk
+          path: |
+            FarsiDub/app/build/outputs/apk/debug/app-debug.apk
+            FarsiDub/app/build/outputs/apk/debug/app-debug.sha256
+          if-no-files-found: error
+          retention-days: 14
